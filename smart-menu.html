@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Bonus Menu v7.0</title>
+    <style>
+        :root { --main: #10b981; --bg: #0f172a; --card: #1e293b; --accent: #f59e0b; }
+        body { background: var(--bg); color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; padding-bottom: 140px; }
+        
+        header { background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); padding: 30px; text-align: center; border-bottom: 2px solid var(--main); }
+        .container { padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
+
+        /* Soft Scale & Glow Animatsiyasi */
+        .food-card { 
+            background: var(--card); border-radius: 20px; padding: 20px; position: relative;
+            transition: all 0.3s ease; border: 1px solid #334155; cursor: default;
+        }
+        .food-card:hover { transform: translateY(-8px); border-color: var(--main); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.1); }
+
+        .top-row { display: flex; justify-content: space-between; align-items: flex-start; }
+        .food-icon { font-size: 50px; margin-bottom: 10px; display: block; }
+        .dots-btn { cursor: pointer; font-size: 24px; color: var(--main); padding: 5px; }
+
+        .price-tag { color: var(--main); font-weight: bold; font-size: 1.2rem; }
+        .discount-info { font-size: 11px; color: var(--accent); margin-top: 5px; font-weight: 600; }
+
+        /* Modal */
+        .modal { 
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); justify-content: center; align-items: center;
+        }
+        .modal-content { 
+            background: var(--card); padding: 30px; border-radius: 25px; width: 90%; max-width: 400px; 
+            border: 2px solid var(--main); animation: popIn 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        /* Bottom Bar */
+        .bottom-bar { 
+            position: fixed; bottom: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.9); 
+            backdrop-filter: blur(15px); padding: 20px; border-top: 2px solid var(--main); z-index: 999;
+        }
+        .total-box { display: flex; flex-direction: column; }
+        .savings-badge { background: var(--accent); color: #000; padding: 2px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; margin-top: 5px; display: none; width: fit-content; }
+        
+        .order-btn { background: var(--main); color: white; border: none; padding: 15px 40px; border-radius: 12px; font-weight: 900; cursor: pointer; transition: 0.3s; }
+        .order-btn:hover { background: #059669; transform: scale(1.05); }
+
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🚀 SMART DELIVERY PRO</h1>
+        <p>Qancha ko'p olsangiz, shuncha ko'p yutasiz!</p>
+    </header>
+
+    <div class="container" id="menu-grid"></div>
+
+    <div id="itemModal" class="modal">
+        <div class="modal-content">
+            <h2 id="m-title">Tarkib</h2>
+            <div id="m-options" style="text-align: left; margin: 20px 0;"></div>
+            <button onclick="closeModal()" style="width:100%; background:#334155; color:white; border:none; padding:10px; border-radius:10px; cursor:pointer;">YOPISH</button>
+        </div>
+    </div>
+
+    <div class="bottom-bar">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+            <div class="total-box">
+                <span style="font-size: 14px; color: #94a3b8;">Umumiy to'lov:</span>
+                <span id="total-price" style="font-size: 24px; font-weight: bold; color: var(--main);">0 so'm</span>
+                <span id="savings-text" class="savings-badge"></span>
+            </div>
+            <button class="order-btn" onclick="checkout()">BUYURTMA BERISH 🛍️</button>
+        </div>
+    </div>
+
+    <script>
+        const TELEGRAM_ID = "ulugbekovvv_3";
+        const products = [
+            { name: "Lavash MAX", price: 35000, icon: "🌯", addons: ["Pishloq", "Qalampir", "Sous"] },
+            { name: "Pitsa Family", price: 85000, icon: "🍕", addons: ["Qolbasa", "Qo'ziqorin", "Zaytun", "Sir"] },
+            { name: "Gamburger", price: 25000, icon: "🍔", addons: ["Kotlet", "Salat", "Pishloq"] },
+            { name: "Chizburger", price: 29000, icon: "🧀", addons: ["Extra Cheese"] },
+            { name: "Hot-Dog", price: 18000, icon: "🌭", addons: ["Sosiska", "Mayonez"] },
+            { name: "Naggetslar", price: 24000, icon: "🍗", addons: ["Sous"] },
+            { name: "Fri", price: 14000, icon: "🍟", addons: ["Sous", "Tuz"] },
+            { name: "Coca-Cola 1.5", price: 12000, icon: "🥤", addons: ["Muz"] },
+            { name: "Pepsi 1.5", price: 12000, icon: "🔵", addons: ["Muz"] },
+            { name: "Fanta 1.5", price: 12000, icon: "🍊", addons: ["Muz"] },
+            { name: "Osh (Palov)", price: 32000, icon: "🍛", addons: ["Qazi", "Limon"] },
+            { name: "Shashlik", price: 48000, icon: "🍢", addons: ["Piyoz"] },
+            { name: "Somsa", price: 9000, icon: "🥟", addons: ["Achchiq"] },
+            { name: "Choy", price: 5000, icon: "🍵", addons: ["Limon", "Asal"] },
+            { name: "Kofe", price: 15000, icon: "☕", addons: ["Sut", "Shakar"] }
+        ];
+
+        let selectedAddons = {};
+
+        function init() {
+            const grid = document.getElementById('menu-grid');
+            products.forEach((p, i) => {
+                grid.innerHTML += `
+                    <div class="food-card">
+                        <div class="top-row">
+                            <span class="food-icon">${p.icon}</span>
+                            <span class="dots-btn" onclick="openOptions(${i})">⋮</span>
+                        </div>
+                        <div style="font-size: 18px; font-weight: bold;">${p.name}</div>
+                        <div class="price-tag">${p.price.toLocaleString()} so'm</div>
+                        <div class="discount-info">🔥 2-donadan boshlab har biriga 2,500 so'm skidka!</div>
+                        
+                        <div style="margin-top: 15px;">
+                            <input type="number" id="qty-${i}" value="0" min="0" max="1000" 
+                                   oninput="calculateTotal()" 
+                                   style="width: 70px; background: #0b0f19; color: white; border: 1px solid var(--main); border-radius: 8px; padding: 8px; font-weight: bold;">
+                            <span style="font-size: 12px; margin-left: 10px; color: #94a3b8;">miqdori</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function openOptions(idx) {
+            const modal = document.getElementById('itemModal');
+            const optDiv = document.getElementById('m-options');
+            document.getElementById('m-title').innerText = products[idx].name;
+            optDiv.innerHTML = "";
+            
+            products[idx].addons.forEach(addon => {
+                const isChecked = selectedAddons[idx]?.includes(addon) ? "checked" : "";
+                optDiv.innerHTML += `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <label>${addon}</label>
+                        <input type="checkbox" ${isChecked} onchange="toggleAddon(${idx}, '${addon}')">
+                    </div>
+                `;
+            });
+            modal.style.display = "flex";
+        }
+
+        function toggleAddon(idx, addon) {
+            if (!selectedAddons[idx]) selectedAddons[idx] = [];
+            const index = selectedAddons[idx].indexOf(addon);
+            if (index > -1) selectedAddons[idx].splice(index, 1);
+            else selectedAddons[idx].push(addon);
+        }
+
+        function closeModal() { document.getElementById('itemModal').style.display = "none"; }
+
+        function calculateTotal() {
+            let grandTotal = 0;
+            let totalSavings = 0;
+
+            products.forEach((p, i) => {
+                let qty = parseInt(document.getElementById(`qty-${i}`).value) || 0;
+                if (qty > 0) {
+                    let pricePerItem = p.price;
+                    let savings = 0;
+
+                    if (qty >= 2) {
+                        savings = qty * 2500; // Har bir dona uchun 2500 skidka
+                    }
+                    
+                    grandTotal += (qty * pricePerItem) - savings;
+                    totalSavings += savings;
+                }
+            });
+
+            document.getElementById('total-price').innerText = grandTotal.toLocaleString() + " so'm";
+            
+            const savingsBadge = document.getElementById('savings-text');
+            if (totalSavings > 0) {
+                savingsBadge.style.display = "block";
+                savingsBadge.innerText = `🎁 Siz ${totalSavings.toLocaleString()} so'm chegrimadasiz!`;
+            } else {
+                savingsBadge.style.display = "none";
+            }
+        }
+
+        function checkout() {
+            let message = "🛒 *YANGI BUYURTMA*\n\n";
+            let hasItems = false;
+
+            products.forEach((p, i) => {
+                let qty = document.getElementById(`qty-${i}`).value;
+                if (qty > 0) {
+                    message += `✅ *${p.name}*: ${qty} dona\n`;
+                    if (selectedAddons[i]?.length > 0) {
+                        message += `   ➕ Qo'shimcha: ${selectedAddons[i].join(", ")}\n`;
+                    }
+                    hasItems = true;
+                }
+            });
+
+            if (!hasItems) return alert("Savat bo'sh!");
+
+            message += `\n💰 *Jami to'lov:* ${document.getElementById('total-price').innerText}`;
+            message += `\n${document.getElementById('savings-text').innerText}`;
+
+            window.location.href = `https://t.me/${TELEGRAM_ID}?text=${encodeURIComponent(message)}`;
+        }
+
+        init();
+    </script>
+</body>
+</html>
